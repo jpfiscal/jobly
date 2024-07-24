@@ -3,7 +3,7 @@
 const db = require("../db");
 const { BadRequestError, NotFoundError } = require("../expressError");
 const { sqlForPartialUpdate } = require("../helpers/sql");
-
+const { buildWhereClause } = require("../helpers/util");
 /** Related functions for companies. */
 
 class Company {
@@ -59,6 +59,25 @@ class Company {
            FROM companies
            ORDER BY name`);
     return companiesRes.rows;
+  }
+
+  /**Get all companies within a set of filter conditions
+   * users can filter on name, minEmployees and/or maxEmployees
+   * Returns [{ handle, name, description, numEmployees, logoUrl }, ...]
+   */
+
+  static async getFilter(name, minEmployees, maxEmployees){
+    const whereClause = buildWhereClause(name, minEmployees, maxEmployees);
+    const result = await db.query(
+      `SELECT handle,
+              name,
+              description,
+              num_employees AS "numEmployees",
+              logo_url AS "logoUrl"
+      FROM companies
+      ${whereClause}
+      ORDER BY name`);
+    return result.rows;
   }
 
   /** Given a company handle, return data about company.

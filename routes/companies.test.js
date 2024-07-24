@@ -3,6 +3,7 @@
 const request = require("supertest");
 
 const db = require("../db");
+const { ExpressError } = require("../expressError");
 const app = require("../app");
 
 const {
@@ -11,6 +12,7 @@ const {
   commonAfterEach,
   commonAfterAll,
   u1Token,
+  u3Token
 } = require("./_testCommon");
 
 beforeAll(commonBeforeAll);
@@ -61,6 +63,14 @@ describe("POST /companies", function () {
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(400);
   });
+
+  test("bad request non-admin user", async function () {
+    const resp = await request(app)
+    .post("/companies")
+    .send(newCompany)
+    .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
 });
 
 /************************************** GET /companies */
@@ -106,6 +116,18 @@ describe("GET /companies", function () {
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(500);
   });
+
+  test("minEmployee > maxEmployee", async function() {
+    
+      const response = await request(app)
+        .get("/companies")
+        .query({minEmployees: 500, maxEmployees: 50});
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBeTruthy();
+      expect(response.body.error.message).toBe("minEmployees cannot be larger than maxEmployees!");
+    
+  })
 });
 
 /************************************** GET /companies/:handle */
@@ -202,6 +224,16 @@ describe("PATCH /companies/:handle", function () {
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(400);
   });
+
+  test("bad request non-admin user", async function () {
+    const resp = await request(app)
+        .patch(`/companies/c1`)
+        .send({
+          name: "C1-new",
+        })
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
 });
 
 /************************************** DELETE /companies/:handle */
@@ -225,5 +257,12 @@ describe("DELETE /companies/:handle", function () {
         .delete(`/companies/nope`)
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(404);
+  });
+
+  test("doesn't work for non-admin users", async function () {
+    const resp = await request(app)
+        .delete(`/companies/c1`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
   });
 });

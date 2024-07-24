@@ -12,6 +12,7 @@ const {
   commonAfterEach,
   commonAfterAll,
   u1Token,
+  u3Token
 } = require("./_testCommon");
 
 beforeAll(commonBeforeAll);
@@ -108,6 +109,21 @@ describe("POST /users", function () {
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(400);
   });
+
+  test("works for users: create non-admin", async function () {
+    const resp = await request(app)
+        .post("/users")
+        .send({
+          username: "u-new",
+          firstName: "First-new",
+          lastName: "Last-newL",
+          password: "password-new",
+          email: "new@email.com",
+          isAdmin: false,
+        })
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
 });
 
 /************************************** GET /users */
@@ -124,7 +140,7 @@ describe("GET /users", function () {
           firstName: "U1F",
           lastName: "U1L",
           email: "user1@user.com",
-          isAdmin: false,
+          isAdmin: true,
         },
         {
           username: "u2",
@@ -160,12 +176,19 @@ describe("GET /users", function () {
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(500);
   });
+
+  test("fails: non-admin users requests", async function () {
+    const resp = await request(app)
+        .get("/users")
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
 });
 
 /************************************** GET /users/:username */
 
 describe("GET /users/:username", function () {
-  test("works for users", async function () {
+  test("pass: works for admin requesting own detail", async function () {
     const resp = await request(app)
         .get(`/users/u1`)
         .set("authorization", `Bearer ${u1Token}`);
@@ -175,7 +198,7 @@ describe("GET /users/:username", function () {
         firstName: "U1F",
         lastName: "U1L",
         email: "user1@user.com",
-        isAdmin: false,
+        isAdmin: true,
       },
     });
   });
@@ -192,6 +215,43 @@ describe("GET /users/:username", function () {
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(404);
   });
+
+  test("pass: admin requesting other user info", async function(){
+    const resp = await request(app)
+        .get(`/users/u2`)
+        .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.body).toEqual({
+      user: {
+        username: "u2",
+        firstName: "U2F",
+        lastName: "U2L",
+        email: "user2@user.com",
+        isAdmin: false,
+      },
+    });
+  });
+
+  test("pass: non-admin requesting their own info", async function(){
+    const resp = await request(app)
+        .get(`/users/u3`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.body).toEqual({
+      user: {
+        username: "u3",
+        firstName: "U3F",
+        lastName: "U3L",
+        email: "user3@user.com",
+        isAdmin: false,
+      },
+    });
+  });
+
+  test("fail: non-admin requesting others info", async function(){
+    const resp = await request(app)
+        .get(`/users/u2`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
+  })
 });
 
 /************************************** PATCH /users/:username */
@@ -210,7 +270,7 @@ describe("PATCH /users/:username", () => {
         firstName: "New",
         lastName: "U1L",
         email: "user1@user.com",
-        isAdmin: false,
+        isAdmin: true,
       },
     });
   });
@@ -257,11 +317,57 @@ describe("PATCH /users/:username", () => {
         firstName: "U1F",
         lastName: "U1L",
         email: "user1@user.com",
-        isAdmin: false,
+        isAdmin: true,
       },
     });
     const isSuccessful = await User.authenticate("u1", "new-password");
     expect(isSuccessful).toBeTruthy();
+  });
+
+  test("fail:non-admin updating for other users", async function () {
+    const resp = await request(app)
+        .patch(`/users/u1`)
+        .send({
+          firstName: "New",
+        })
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+
+  test("pass: non-admin updating own info", async function () {
+    const resp = await request(app)
+        .patch(`/users/u3`)
+        .send({
+          firstName: "New",
+        })
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.body).toEqual({
+      user: {
+        username: "u3",
+        firstName: "New",
+        lastName: "U3L",
+        email: "user3@user.com",
+        isAdmin: false,
+      },
+    });
+  });
+
+  test("pass: admin updating other user info", async function () {
+    const resp = await request(app)
+        .patch(`/users/u3`)
+        .send({
+          firstName: "New",
+        })
+        .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.body).toEqual({
+      user: {
+        username: "u3",
+        firstName: "New",
+        lastName: "U3L",
+        email: "user3@user.com",
+        isAdmin: false,
+      },
+    });
   });
 });
 
@@ -286,5 +392,26 @@ describe("DELETE /users/:username", function () {
         .delete(`/users/nope`)
         .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(404);
+  });
+
+  test("pass: admin deleting other user", async function () {
+    const resp = await request(app)
+        .delete(`/users/u2`)
+        .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.body).toEqual({ deleted: "u2" });
+  });
+
+  test("pass: non-admin deleting own user", async function () {
+    const resp = await request(app)
+        .delete(`/users/u3`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.body).toEqual({ deleted: "u3" });
+  });
+
+  test("fail: non-admin deleting other user", async function () {
+    const resp = await request(app)
+        .delete(`/users/u2`)
+        .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
   });
 });

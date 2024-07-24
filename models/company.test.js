@@ -1,7 +1,7 @@
 "use strict";
 
 const db = require("../db.js");
-const { BadRequestError, NotFoundError } = require("../expressError");
+const { BadRequestError, NotFoundError, ExpressError } = require("../expressError");
 const Company = require("./company.js");
 const {
   commonBeforeAll,
@@ -107,6 +107,39 @@ describe("get", function () {
       fail();
     } catch (err) {
       expect(err instanceof NotFoundError).toBeTruthy();
+    }
+  });
+});
+/************************************** getFilter */
+describe("getFilter", function(){
+  test("works", async function(){
+    let company = await Company.getFilter('1', 0, 1);
+    expect(company).toEqual([{
+          handle: "c1",
+          name: "C1",
+          description: "Desc1",
+          numEmployees: 1,
+          logoUrl: "http://c1.img"
+    }]);
+  });
+  test("bad minEmployee input", async function(){
+    try{
+      await Company.getFilter('1', 'a', 1);
+      expect(true).toBe(false);
+    } catch(e){
+      expect(e instanceof ExpressError).toBeTruthy();
+      expect(e.status).toBe(400);
+      expect(e.message).toBe("minEmployees must be a number");
+    }
+  });
+  test("bad maxEmployee input", async function(){
+    try{
+      await Company.getFilter('1', 0, 'b');
+      expect(true).toBe(false);
+    } catch(e){
+      expect(e instanceof ExpressError).toBeTruthy();
+      expect(e.status).toBe(400);
+      expect(e.message).toBe("maxEmployees must be a number");
     }
   });
 });
