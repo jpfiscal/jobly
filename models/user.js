@@ -3,6 +3,7 @@
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const { sqlForPartialUpdate } = require("../helpers/sql");
+const { createJobArray } = require("../helpers/util");
 const {
   NotFoundError,
   BadRequestError,
@@ -102,17 +103,38 @@ class User {
    **/
 
   static async findAll() {
-    const result = await db.query(
-          `SELECT username,
+    const userResult = await db.query(
+      `SELECT username,
                   first_name AS "firstName",
                   last_name AS "lastName",
                   email,
                   is_admin AS "isAdmin"
            FROM users
-           ORDER BY username`,
+           ORDER BY username`
     );
+    const jobResult = await db.query(
+          `SELECT u.username,
+                  a.job_id AS "jobId"
+           FROM users AS u
+           INNER JOIN applications AS a ON a.username = u.username
+           ORDER BY u.username`
+    );
+    console.log(`USER RESULT ROWS: ${JSON.stringify(userResult.rows)}`);
+    console.log(`JOB RESULT ROWS: ${JSON.stringify(jobResult.rows)}`);
 
-    return result.rows;
+    let result = userResult.rows.map(d => ({
+      username: d.username,
+      firstName: d.firstName,
+      lastName: d.lastName,
+      email: d.email,
+      isAdmin: d.isAdmin,
+      //use createJobArray function in utils.js to populate jobs array
+      jobs: createJobArray(d.username, jobResult.rows)
+    }))
+    //populate the jobs array within result with job ids listed in jobResult.rows
+    
+    
+    return result;
   }
 
   /** Given a username, return data about user.
@@ -125,21 +147,35 @@ class User {
 
   static async get(username) {
     const userRes = await db.query(
-          `SELECT username,
+          `SELECT u.username,
                   first_name AS "firstName",
                   last_name AS "lastName",
                   email,
-                  is_admin AS "isAdmin"
-           FROM users
-           WHERE username = $1`,
+                  is_admin AS "isAdmin",
+                  a.job_id AS "jobId"
+           FROM users AS u
+           LEFT JOIN applications AS a ON a.username = u.username
+           WHERE u.username = $1`,
         [username],
     );
 
     const user = userRes.rows[0];
+    const jobs = userRes.rows.filter(d => d.jobId !==null)
+      .map(d => (d.jobId));
+    console.log(`JOBS ARRAY: ${jobs}`);
 
     if (!user) throw new NotFoundError(`No user: ${username}`);
 
-    return user;
+    const result = {
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      jobs: jobs
+    }
+
+    return result;
   }
 
   /** Update user data with `data`.
@@ -203,6 +239,18 @@ class User {
     const user = result.rows[0];
 
     if (!user) throw new NotFoundError(`No user: ${username}`);
+  }
+
+  /**Allow user to apply to a job based on username and job ID */
+  static async apply(username, jobId){
+    let result = await db.query(`
+      INSERT INTO applications (
+        username,
+        job_id)
+      VALUES($1,$2)
+      RETURNING username, job_id as "JobId"`,
+    [username, jobId]);
+    return result;
   }
 }
 

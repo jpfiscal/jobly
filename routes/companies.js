@@ -21,7 +21,7 @@ const router = new express.Router();
  *
  * Returns { handle, name, description, numEmployees, logoUrl }
  *
- * Authorization required: login
+ * Authorization required: login, Admin
  */
 
 router.post("/", ensureLoggedIn, ensureAdmin, async function (req, res, next) {
@@ -62,10 +62,7 @@ router.get("/", async function (req, res, next) {
         }
       });
       const {name, minEmployees, maxEmployees} = req.query;
-      console.log(`name = ${name}, minEmployees = ${minEmployees}, maxEmployees=${maxEmployees}`);
-      // if(isNaN(minEmployees) === true){
-      //   throw new ExpressError("Min or Max employees are not numbers",400);
-      // }
+
       if(Number(minEmployees) > Number(maxEmployees)){
         throw new ExpressError("minEmployees cannot be larger than maxEmployees!",400);
       }
@@ -123,7 +120,7 @@ router.patch("/:handle", ensureLoggedIn, ensureAdmin, async function (req, res, 
 
 /** DELETE /[handle]  =>  { deleted: handle }
  *
- * Authorization: login
+ * Authorization: login, Admin
  */
 
 router.delete("/:handle", ensureLoggedIn, ensureAdmin, async function (req, res, next) {

@@ -130,6 +130,20 @@ describe("POST /users", function () {
 
 describe("GET /users", function () {
   test("works for users", async function () {
+    //get u1 to apply for job with smallest jobId
+    let job = await db.query(
+      `SELECT min(id) FROM jobs`
+    )
+    const jobId = job.rows[0]["min"];
+    await request(app)
+      .post(`/users/u1/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    
+    //get u3 to also apply for job with the smallest jobId
+    await request(app)
+      .post(`/users/u3/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u3Token}`);
+
     const resp = await request(app)
         .get("/users")
         .set("authorization", `Bearer ${u1Token}`);
@@ -141,6 +155,7 @@ describe("GET /users", function () {
           lastName: "U1L",
           email: "user1@user.com",
           isAdmin: true,
+          jobs:[jobId]
         },
         {
           username: "u2",
@@ -148,6 +163,7 @@ describe("GET /users", function () {
           lastName: "U2L",
           email: "user2@user.com",
           isAdmin: false,
+          jobs:[]
         },
         {
           username: "u3",
@@ -155,6 +171,7 @@ describe("GET /users", function () {
           lastName: "U3L",
           email: "user3@user.com",
           isAdmin: false,
+          jobs:[jobId]
         },
       ],
     });
@@ -189,6 +206,15 @@ describe("GET /users", function () {
 
 describe("GET /users/:username", function () {
   test("pass: works for admin requesting own detail", async function () {
+    //get u1 to apply for job with smallest jobId
+    let job = await db.query(
+      `SELECT min(id) FROM jobs`
+    )
+    const jobId = job.rows[0]["min"];
+    await request(app)
+      .post(`/users/u1/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u1Token}`);
+
     const resp = await request(app)
         .get(`/users/u1`)
         .set("authorization", `Bearer ${u1Token}`);
@@ -199,6 +225,7 @@ describe("GET /users/:username", function () {
         lastName: "U1L",
         email: "user1@user.com",
         isAdmin: true,
+        jobs:[jobId]
       },
     });
   });
@@ -227,6 +254,7 @@ describe("GET /users/:username", function () {
         lastName: "U2L",
         email: "user2@user.com",
         isAdmin: false,
+        jobs: []
       },
     });
   });
@@ -242,6 +270,7 @@ describe("GET /users/:username", function () {
         lastName: "U3L",
         email: "user3@user.com",
         isAdmin: false,
+        jobs: []
       },
     });
   });
@@ -412,6 +441,38 @@ describe("DELETE /users/:username", function () {
     const resp = await request(app)
         .delete(`/users/u2`)
         .set("authorization", `Bearer ${u3Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+});
+
+/************************************** POST /users/:username/jobs/:id */
+describe("POST /users/:username/jobs/:id", function(){
+  test("pass: user applies for job - happy path", async function(){
+    //grab the smallest job ID existing in the jobs table
+    let job = await db.query(
+      `SELECT min(id) FROM jobs`
+    )
+    const jobId = job.rows[0]["min"];
+
+    const resp = await request(app)
+      .post(`/users/u1/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    console.log(`RESPONSE: ${JSON.stringify(resp.body)}`);
+    expect(resp.statusCode).toEqual(200);
+    expect(resp.body).toEqual({
+      applied: jobId
+    })
+  });
+
+  test("fail: user applies for job as other user", async function(){
+    //grab the smallest job ID existing in the jobs table
+    let job = await db.query(
+      `SELECT min(id) FROM jobs`
+    )
+    const jobId = job.rows[0]["min"];
+    const resp = await request(app)
+      .post(`/users/u1/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u3Token}`);
     expect(resp.statusCode).toEqual(401);
   });
 });

@@ -94,16 +94,44 @@ class Company {
                   name,
                   description,
                   num_employees AS "numEmployees",
-                  logo_url AS "logoUrl"
-           FROM companies
+                  logo_url AS "logoUrl",
+                  j.id,
+                  title,
+                  salary,
+                  equity
+           FROM companies AS c
+           LEFT JOIN jobs AS j ON j.company_handle = c.handle
            WHERE handle = $1`,
         [handle]);
 
-    const company = companyRes.rows[0];
+    if (companyRes.rows.length === 0) throw new NotFoundError(`No company: ${handle}`);
+    const companyData = companyRes.rows[0]
+    const company = {
+      handle: companyData.handle,
+      name: companyData.name,
+      description: companyData.description,
+      numEmployees: companyData.numEmployees,
+      logoUrl: companyData.logoUrl
+    };
+    const jobs = companyRes.rows
+      .filter(d => d.id !==null)
+      .map(d => ({
+        id: d.id,
+        title: d.title,
+        salary: d.salary,
+        equity: d.equity === null ? 0 : d.equity
+    }));
+    console.log(`JOBS = ${JSON.stringify(jobs)}`);
+    const result = {
+      handle: company.handle,
+      name: company.name,
+      description: company.description,
+      numEmployees: company.numEmployees,
+      logoUrl: company.logoUrl,
+      jobs: jobs
+    }
 
-    if (!company) throw new NotFoundError(`No company: ${handle}`);
-
-    return company;
+    return result;
   }
 
   /** Update company data with `data`.

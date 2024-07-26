@@ -6,7 +6,7 @@ const jsonschema = require("jsonschema");
 
 const express = require("express");
 const { ensureLoggedIn, ensureAdmin } = require("../middleware/auth");
-const { AdminOrOwnAccount } = require("../helpers/util");
+const { AdminOrOwnAccount, OwnAccount } = require("../helpers/util");
 const { BadRequestError, UnauthorizedError } = require("../expressError");
 const User = require("../models/user");
 const { createToken } = require("../helpers/tokens");
@@ -136,3 +136,24 @@ router.delete("/:username", ensureLoggedIn, async function (req, res, next) {
 
 
 module.exports = router;
+
+/** POST /[username, jobId]  =>  { applied: jobId }
+ *
+ * returns {applied: jobId}
+ * 
+ * Authorization required: login
+ **/
+
+router.post("/:username/jobs/:jobId", ensureLoggedIn, async function (req, res, next){
+  try{
+    if (OwnAccount(req.params.username, res.locals.user)){
+      const result = await User.apply(req.params.username, req.params.jobId);
+      const jobId = result.rows[0]["JobId"];
+      return res.json({applied: jobId});
+    }else {
+      throw new UnauthorizedError();
+    }
+  }catch(e){
+    return next(e);
+  }
+})

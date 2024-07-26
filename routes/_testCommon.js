@@ -3,6 +3,7 @@
 const db = require("../db.js");
 const User = require("../models/user");
 const Company = require("../models/company");
+const Job = require("../models/job");
 const { createToken } = require("../helpers/tokens");
 
 async function commonBeforeAll() {
@@ -60,6 +61,24 @@ async function commonBeforeAll() {
     password: "password3",
     isAdmin: false,
   });
+  await Job.create({
+    title: "j1",
+    salary: 50000,
+    equity: 0,
+    companyHandle: "c1"
+  })
+  await Job.create({
+    title: "j2",
+    salary: 150000,
+    equity: 0.01,
+    companyHandle: "c2"
+  })
+  await Job.create({
+    title: "j3",
+    salary: 90000,
+    equity: 0,
+    companyHandle: "c1"
+  })
 }
 
 async function commonBeforeEach() {

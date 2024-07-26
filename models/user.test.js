@@ -109,6 +109,13 @@ describe("register", function () {
 
 describe("findAll", function () {
   test("works", async function () {
+    //get u1 to apply for the job with the lowest jobId
+    let job = await db.query(
+      `SELECT min(id) FROM jobs`
+    )
+    const jobID = job.rows[0]["min"];
+    await User.apply("u1", jobID);
+
     const users = await User.findAll();
     expect(users).toEqual([
       {
@@ -117,6 +124,7 @@ describe("findAll", function () {
         lastName: "U1L",
         email: "u1@email.com",
         isAdmin: false,
+        jobs: [jobID]
       },
       {
         username: "u2",
@@ -124,6 +132,7 @@ describe("findAll", function () {
         lastName: "U2L",
         email: "u2@email.com",
         isAdmin: false,
+        jobs: []
       },
     ]);
   });
@@ -133,6 +142,13 @@ describe("findAll", function () {
 
 describe("get", function () {
   test("works", async function () {
+    //get u1 to apply to a job with the smallest ID
+    let job = await db.query(
+      `SELECT min(id) FROM jobs`
+    );
+    const jobID = job.rows[0]["min"];
+    await User.apply("u1", jobID);
+
     let user = await User.get("u1");
     expect(user).toEqual({
       username: "u1",
@@ -140,6 +156,7 @@ describe("get", function () {
       lastName: "U1L",
       email: "u1@email.com",
       isAdmin: false,
+      jobs: [jobID]
     });
   });
 
@@ -226,5 +243,27 @@ describe("remove", function () {
     } catch (err) {
       expect(err instanceof NotFoundError).toBeTruthy();
     }
+  });
+});
+
+/************************************** apply */
+
+describe("apply", function(){
+  test("pass: happy path", async function(){
+    let job = await db.query(
+      `SELECT min(id) FROM jobs`
+    )
+    const jobID = job.rows[0]["min"];
+    await User.apply("u1", jobID);
+    const res = await db.query(
+      `SELECT username, job_id AS "jobID"
+      FROM applications 
+      WHERE username = 'u1'
+      AND job_id = ${jobID}`
+    );
+    expect(res.rows[0]).toEqual({
+      username: "u1",
+      jobID: jobID
+    })
   });
 });
